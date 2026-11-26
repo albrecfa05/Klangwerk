@@ -248,7 +248,8 @@ function sendCfg(){if(A)A.loop.port.postMessage({t:'cfg',bpm,metro,quant,after})
 function setBpm(v){v=Math.max(40,Math.min(240,Math.round(v)));if(locked()){toast('Tempo gesperrt, solange Spuren belegt sind');bpmEl.value=bpm;return;}
   bpm=v;bpmEl.value=v;if(A)for(let pi=0;pi<2;pi++){A.P[pi].syn.port.postMessage({t:'p',p:{bpm}});fx(pi,'dlyTime');}sendCfg();}
 bpmEl.addEventListener('change',()=>setBpm(+bpmEl.value));
-function transport(run){if(!A)return;running=run;const start=Math.round((A.ctx.currentTime+0.06)*A.sr);
+let tStart=0;
+function transport(run){if(!A)return;running=run;const start=Math.round((A.ctx.currentTime+0.06)*A.sr);tStart=start;
   const m={t:'tr',run,start};A.loop.port.postMessage(m);A.P[0].syn.port.postMessage(m);A.P[1].syn.port.postMessage(m);
   const b=$('#play');b.textContent=run?'Stop':'Start';b.classList.toggle('on',run);}
 let taps=[];
@@ -261,10 +262,13 @@ $('#vol').addEventListener('input',e=>{MX.M.n=+e.target.value;applyMix();renderM
 
 /* ================= Looper ================= */
 const lanesEl=$('#lanes');
-const SRC=['Alles','Part A','Part B','Drums','Eingang'],BARS=[1,2,4,8,16];
+const DESK=!!window.KWD;
+const SRC=DESK?['Alles inkl. VST','Part A','Part B','Drums','Eingang']:['Alles','Part A','Part B','Drums','Eingang'],BARS=[1,2,4,8,16];
+const srcName=k=>k>=10?'VST-Slot '+(k-9):SRC[k]||'';
+const srcOpts=()=>SRC.map((s,k)=>`<option value="${k}">${s}</option>`).join('')+(DESK?'<optgroup label="Nur Plugin">'+Array.from({length:8},(_,k)=>`<option value="${10+k}">VST-Slot ${k+1}</option>`).join('')+'</optgroup>':'');
 lanesEl.innerHTML=TC.map((c,i)=>`<div class="lane" data-i="${i}" style="--tc:${c}">
  <div class="ln"><b>${i+1}</b><span>leer</span></div>
- <div class="lcfg"><select data-src aria-label="Quelle Spur ${i+1}">${SRC.map((s,k)=>`<option value="${k}">${s}</option>`).join('')}</select><select data-bars aria-label="Länge Spur ${i+1}">${BARS.map(b=>`<option value="${b}"${b===2?' selected':''}>${b} Takt${b>1?'e':''}</option>`).join('')}</select></div>
+ <div class="lcfg"><select data-src aria-label="Quelle Spur ${i+1}">${srcOpts()}</select><select data-bars aria-label="Länge Spur ${i+1}">${BARS.map(b=>`<option value="${b}"${b===2?' selected':''}>${b} Takt${b>1?'e':''}</option>`).join('')}</select></div>
  <canvas></canvas>
  <div class="lbtn"><button class="recb" data-act="rec${i}" data-learn="a:rec${i}" data-name="Spur ${i+1} Rec">Rec</button><button data-act="stop${i}" data-learn="a:stop${i}" data-name="Spur ${i+1} Stop/Start">Stop</button><button data-act="mute${i}" data-learn="a:mute${i}" data-name="Spur ${i+1} Mute">M</button><button data-act="solo${i}" data-learn="a:solo${i}" data-name="Spur ${i+1} Solo">S</button><button data-act="rev${i}" data-learn="a:rev${i}" data-name="Spur ${i+1} Rückwärts">Rev</button><button data-act="undo${i}" data-learn="a:undo${i}" data-name="Spur ${i+1} Undo">Undo</button><button data-act="clear${i}" data-learn="a:clear${i}" data-name="Spur ${i+1} Löschen">Leeren</button></div>
  <div class="lmix"><span>Vol</span><input type="range" data-k="vol" min="0" max="1.25" step="0.01" value="0.85" aria-label="Lautstärke Spur ${i+1}"><span>Pan</span><input type="range" data-k="pan" min="-1" max="1" step="0.01" value="0" aria-label="Panorama Spur ${i+1}"><span>Dub</span><input type="range" data-k="fb" min="0.5" max="1" step="0.01" value="1" aria-label="Overdub-Abklingen Spur ${i+1}"></div>
@@ -291,8 +295,22 @@ function renderLanes(){lanes.forEach((el,i)=>{const t=LT[i],s=el.querySelector('
   el.querySelector('[data-src]').value=t.src;el.querySelector('[data-bars]').value=t.bars;el.querySelector('[data-bars]').disabled=t.st!=='empty';
   for(const k of ['vol','pan','fb']){const inp=el.querySelector(`[data-k="${k}"]`);if(document.activeElement!==inp)inp.value=t[k];}});
   bpmEl.disabled=locked();}
+/* Desktop: Plugin-Klang in den Looper holen. Die App schneidet jeden Slot mit; nach einer Aufnahme
+   wird genau der gehörte Abschnitt geholt und in die Spur gemischt. */
+let vstOff=+LS.get('kw.vstOff',0)||0;
+function slotsForSrc(src){const has=i=>SLOTS[i]&&SLOTS[i].plugin;
+  if(src>=10)return has(src-10)?[src-10]:[];
+  if(src===0)return SLOTS.map((_,i)=>i).filter(has);
+  if(src===1||src===2){const o=outSel[src-1];return o.mode!=='int'&&has(o.slot)?[o.slot]:[];}
+  return[];}
+function frameToEpoch(f){const ts=A.ctx.getOutputTimestamp();return performance.timeOrigin+ts.performanceTime+(f/A.sr-ts.contextTime)*1000;}
+function vstIntoLoop(m){if(!DESK||!A)return;const sl=slotsForSrc(m.src);if(!sl.length)return;
+  const t0=frameToEpoch(tStart+m.r0)+vstOff,t1=frameToEpoch(tStart+m.r1)+vstOff;
+  setTimeout(()=>{KWD.call('kwCapture',sl,t0,t1,A.sr).then(r=>{if(!r||!r.id){toast('Plugin-Klang konnte nicht übernommen werden');return;}
+    return fetch('capture/'+r.id).then(x=>x.arrayBuffer()).then(buf=>{const d=new Float32Array(buf);A.loop.port.postMessage({t:'inject',i:m.i,r0:m.r0,n:r.n,d},[d.buffer]);});}).catch(()=>toast('Plugin-Klang konnte nicht übernommen werden'));},450);}
 function onLoop(m){
   if(m.t==='st'){m.s.forEach((x,i)=>Object.assign(LT[i],x));renderLanes();renderPads();renderKnobs();}
+  else if(m.t==='span')vstIntoLoop(m);
   else if(m.t==='peaks')LT[m.i].peaks=m.d;
   else if(m.t==='pos')pos={rel:m.rel,beat:m.beat,bar:m.bar,t:A.ctx.currentTime,run:m.run};
   else if(m.t==='mix'){if(!m.any){toast('Keine Spuren zum Exportieren');return;}download('klangwerk-loop.wav',wav(m.L,m.R,m.sr));}
@@ -821,7 +839,7 @@ function renderCtl(){if(!VIS.steuerung)return;
   $('#partOuts').innerHTML=[0,1].map(pi=>`<label><b style="color:var(--ink)">Part ${pi?'B':'A'}</b><select data-om="${pi}">${OUTM.map(([k,l])=>`<option value="${k}"${outSel[pi].mode===k?' selected':''}>${l}</option>`).join('')}</select>
     <select data-os="${pi}" aria-label="Slot">${SLOTS.map((s,i)=>`<option value="${i}"${outSel[pi].slot===i?' selected':''}>Slot ${i+1}: ${esc(s.name)}</option>`).join('')}</select></label>`).join('');
   const D=!!window.KWD;
-  if(D){$('#vstH').textContent='VST-Plugins (direkt in Klangwerk)';$('#vstP').innerHTML='Wähle pro Slot ein VST3-Plugin. „Fenster“ öffnet die Oberfläche des Plugins. Alternativ kann ein Slot weiter per MIDI-Port an FL Studio gehen. <span style="white-space:nowrap"><button id="kwScanB">Plugins suchen</button> <button id="kwAudioB">Audio-Einstellungen</button> <span id="kwScanS" class="hint"></span></span>';}
+  if(D){$('#vstH').textContent='VST-Plugins (direkt in Klangwerk)';$('#vstP').innerHTML='Wähle pro Slot ein VST3-Plugin. „Fenster“ öffnet die Oberfläche des Plugins. Alternativ kann ein Slot weiter per MIDI-Port an FL Studio gehen. <span style="white-space:nowrap"><button id="kwScanB">Plugins suchen</button> <button id="kwAudioB">Audio-Einstellungen</button> <span id="kwScanS" class="hint"></span></span><br><label style="display:inline-flex;gap:6px;align-items:center;margin-top:6px">Looper-Ausgleich für Plugins (ms) <input type="number" id="vstOffI" value="'+vstOff+'" step="1" style="width:80px"></label> <span class="hint">positiv = Plugin-Spur später, negativ = früher</span>';}
   const plugOpts=s=>'<option value="">– kein Plugin –</option>'+[...PLUGINS].sort((a,b)=>(b.instrument-a.instrument)||a.name.localeCompare(b.name)).map(p=>`<option value="${esc(p.id)}"${s.plugin===p.id?' selected':''}>${p.instrument?'':'(Effekt) '}${esc(p.name)} – ${esc(p.vendor)}</option>`).join('');
   $('#slotT').innerHTML=`<thead><tr><th>Slot</th>${D?'<th>Plugin</th>':''}<th>${D?'Name':'Instrument in FL Studio'}</th><th>MIDI-Port</th><th>Kanal</th><th>Programm</th><th></th></tr></thead><tbody>${SLOTS.map((s,i)=>`<tr data-sl="${i}"><td>${i+1}</td>
     ${D?`<td><select data-plug="${i}" aria-label="Plugin Slot ${i+1}">${plugOpts(s)}</select></td>`:''}
@@ -839,6 +857,7 @@ $('#steuerung').addEventListener('click',e=>{const t=e.target.closest('[data-tou
 $('#steuerung').addEventListener('change',e=>{const t=e.target;
   if(t.dataset.dev){roles[t.dataset.dev]=t.value;LS.set('kw.roles',roles);panic();return;}
   if(t.dataset.pm){const [s,m]=t.dataset.pm.split(':');PADMAP[s][m]=t.value;LS.set('kw.padmap',PADMAP);return;}
+  if(t.id==='vstOffI'){vstOff=Math.max(-500,Math.min(500,+t.value||0));LS.set('kw.vstOff',vstOff);return;}
   if(t.dataset.plug!==undefined&&window.KWD){const i=+t.dataset.plug,id=t.value;t.disabled=true;
     KWD.call('kwLoad',i,id).then(r=>{t.disabled=false;if(r&&r.ok){SLOTS[i].plugin=id;if(id)SLOTS[i].name=r.name;LS.set('kw.slots',SLOTS);renderCtl();if(VIS.songs)renderSongEd();toast(id?'Geladen: '+r.name+' (Slot '+(i+1)+')':'Slot '+(i+1)+' geleert');}else{toast((r&&r.err)||'Plugin ließ sich nicht laden');renderCtl();}});return;}
   if(t.dataset.om!==undefined){pSend(+t.dataset.om,{t:'panic'});outSel[+t.dataset.om].mode=t.value;LS.set('kw.out2',outSel);return;}
@@ -946,7 +965,7 @@ function laneImg(i,c){const t=LT[i],s=SZ.get(c);if(!s||!s.W)return null;
   g.fillStyle='#1d1e22';for(let b=1;b<t.bars;b++)g.fillRect(Math.round(b/t.bars*s.W),0,1,s.H);
   if(t.peaks){g.fillStyle=col;const N=t.peaks.length;let mx=0;for(let k=0;k<N;k++)if(t.peaks[k]>mx)mx=t.peaks[k];const sc=Math.min(12,0.9/Math.max(mx,1e-4));
     for(let k=0;k<N;k++){const h=Math.min(1,t.peaks[k]*sc)*s.H*0.92;g.fillRect(k/N*s.W,(s.H-h)/2,Math.max(1,s.W/N-0.4),Math.max(1,h));}}
-  else if(t.st==='empty'){g.fillStyle='#3a3b40';g.font=Math.round(12*s.dpr)+'px Barlow,sans-serif';g.textBaseline='middle';g.fillText('leer · '+SRC[t.src]+' · '+t.bars+' Takt'+(t.bars>1?'e':''),8*s.dpr,s.H/2);}
+  else if(t.st==='empty'){g.fillStyle='#3a3b40';g.font=Math.round(12*s.dpr)+'px Barlow,sans-serif';g.textBaseline='middle';g.fillText('leer · '+srcName(t.src)+' · '+t.bars+' Takt'+(t.bars>1?'e':''),8*s.dpr,s.H/2);}
   c._img=im;c._key=key;return im;}
 function drawLanes(rel){for(let i=0;i<8;i++){const c=laneCv[i],s=SZ.get(c);if(!s||!s.W)continue;const t=LT[i];
   const ph=(t.len&&rel>=0&&t.st!=='empty')?(rel%t.len)/t.len:-1;const k=Math.round(ph*s.W);

@@ -174,10 +174,13 @@ class Looper extends AudioWorkletProcessor{
   constructor(){
     super();this.sr=sampleRate;this.bpm=120;this.beats=4;this.run=false;this.start=0;this.metro=false;this.quant=true;this.after='play';
     this.T=[];for(let i=0;i<8;i++)this.T.push({L:null,R:null,uL:null,uR:null,st:'empty',bars:2,src:0,mute:false,solo:false,stop:false,pStop:false,pStart:false,rev:false,vol:0.85,pan:0,gl:1,gr:1,fb:1,undo:false,redo:false,has:false,left:0,minRel:0});
-    this.click=0;this.cf=1000;this.cph=0;this.cnt=0;this.pend=[];
+    this.click=0;this.cf=1000;this.cph=0;this.cnt=0;this.pend=[];this.spans=[];
     this.port.onmessage=e=>this.msg(e.data);
   }
   dims(){const beat=Math.round(this.sr*60/this.bpm);return{beat,bar:beat*this.beats};}
+  relNow(){return this.run?Math.max(0,currentFrame-this.start):0;}
+  span(i){const t=this.T[i];if(t.r0===undefined||t.r0<0)return;const r1=this.relNow();if(r1>t.r0)this.spans.push({t:'span',i,r0:t.r0,r1,src:t.src});t.r0=-1;}
+  flushSpans(){while(this.spans.length)this.port.postMessage(this.spans.shift());}
   free(t){t.L=t.R=t.uL=t.uR=null;t.st='empty';t.undo=t.redo=false;t.has=false;t.stop=t.pStop=t.pStart=false;}
   backup(t){if(!t.uL||t.uL.length!==t.L.length){t.uL=new Float32Array(t.L.length);t.uR=new Float32Array(t.L.length);}t.uL.set(t.L);t.uR.set(t.R);t.undo=true;t.redo=false;}
   msg(m){
@@ -185,9 +188,10 @@ class Looper extends AudioWorkletProcessor{
     switch(m.t){
       case'cfg':if(this.T.every(x=>!x.L))this.bpm=m.bpm;this.metro=m.metro;this.quant=m.quant;this.after=m.after;break;
       case'tr':this.run=m.run;this.start=m.start;
-        if(!m.run)this.T.forEach((x,k)=>{if(x.st==='arm'){if(x.has)x.st='play';else this.free(x);}else if(x.st==='rec'){x.st='play';x.has=true;this.pend.push(k);}else if(x.st==='od'){x.st='play';this.pend.push(k);}});
+        if(!m.run)this.T.forEach((x,k)=>{if(x.st==='arm'){if(x.has)x.st='play';else this.free(x);}else if(x.st==='rec'){x.st='play';x.has=true;this.pend.push(k);this.span(k);}else if(x.st==='od'){x.st='play';this.pend.push(k);this.span(k);}});this.flushSpans();
         break;
-      case'rec':this.rec(m.i,m.ci);break;
+      case'rec':this.rec(m.i,m.ci);this.flushSpans();break;
+      case'inject':if(t&&t.L&&m.d){const len=t.L.length,n=m.n,d=m.d;for(let k=0;k<n;k++){const p=(((m.r0+k)%len)+len)%len,j=t.rev?len-1-p:p;t.L[j]+=d[k];t.R[j]+=d[n+k];}this.peaks(m.i);}break;
       case'stop':{if(!t.has)break;const tg=t.pStop?true:t.pStart?false:t.stop;const want=m.v!==undefined?m.v:!tg;
         if(this.quant&&this.run){if(want===t.stop){t.pStop=t.pStart=false;}else{t.pStop=want;t.pStart=!want;}}else{t.stop=want;t.pStop=t.pStart=false;}
         break;}
@@ -209,11 +213,11 @@ class Looper extends AudioWorkletProcessor{
     switch(t.st){
       case'empty':{const len=bar*t.bars;t.L=new Float32Array(len);t.R=new Float32Array(len);t.has=false;t.undo=t.redo=false;
         const r=this.run?currentFrame-this.start:0;t.minRel=ci?Math.ceil(Math.max(r,0)/bar)*bar+bar:0;
-        t.st=(this.quant||ci)?'arm':'rec';t.left=len;t.stop=false;break;}
+        t.st=(this.quant||ci)?'arm':'rec';t.left=len;t.stop=false;t.r0=-1;break;}
       case'arm':if(t.has)t.st='play';else this.free(t);break;
-      case'rec':t.has=true;t.st=this.after==='od'?'od':'play';if(t.st==='od')this.backup(t);this.pend.push(i);break;
-      case'play':t.stop=false;t.pStart=t.pStop=false;this.backup(t);t.st='od';break;
-      case'od':t.st='play';this.pend.push(i);break;
+      case'rec':t.has=true;this.span(i);t.st=this.after==='od'?'od':'play';if(t.st==='od'){this.backup(t);t.r0=this.relNow();}this.pend.push(i);break;
+      case'play':t.stop=false;t.pStart=t.pStop=false;this.backup(t);t.st='od';t.r0=this.relNow();break;
+      case'od':this.span(i);t.st='play';this.pend.push(i);break;
     }
   }
   peaks(i){
@@ -238,10 +242,10 @@ class Looper extends AudioWorkletProcessor{
             const t=this.T[k];if(!t.L)continue;
             const len=t.L.length,pos=rel%len,idx=t.rev?len-1-pos:pos;
             if(isBar){if(t.pStop){t.stop=true;t.pStop=false;changed=true;}if(t.pStart){t.stop=false;t.pStart=false;changed=true;}}
-            let xl,xr;switch(t.src){case 1:xl=AL;xr=AR;break;case 2:xl=BL;xr=BR;break;case 3:xl=DL;xr=DR;break;case 4:xl=IL;xr=IR;break;default:xl=AL+BL+DL+IL;xr=AR+BR+DR+IR;}
+            let xl,xr;switch(t.src){case 1:xl=AL;xr=AR;break;case 2:xl=BL;xr=BR;break;case 3:xl=DL;xr=DR;break;case 4:xl=IL;xr=IR;break;case 5:case 10:case 11:case 12:case 13:case 14:case 15:case 16:case 17:xl=0;xr=0;break;default:xl=AL+BL+DL+IL;xr=AR+BR+DR+IR;}
             const st=t.st;
             if(st==='arm'&&isBar&&rel>=t.minRel){t.st='rec';t.left=len;changed=true;}
-            if(t.st==='rec'){t.L[idx]=xl;t.R[idx]=xr;if(--t.left<=0){t.has=true;t.st=this.after==='od'?'od':'play';if(t.st==='od')this.backup(t);this.pend.push(k);changed=true;}}
+            if(t.st==='rec'){if(t.r0<0)t.r0=rel;t.L[idx]=xl;t.R[idx]=xr;if(--t.left<=0){t.has=true;this.spans.push({t:'span',i:k,r0:t.r0,r1:rel+1,src:t.src});t.r0=-1;t.st=this.after==='od'?'od':'play';if(t.st==='od'){this.backup(t);t.r0=rel+1;}this.pend.push(k);changed=true;}}
             else if(st==='play'||st==='od'){
               const a=t.L[idx],b=t.R[idx];
               if(st==='od'){t.L[idx]=a*t.fb+xl;t.R[idx]=b*t.fb+xr;}
@@ -256,6 +260,7 @@ class Looper extends AudioWorkletProcessor{
     }
     if(changed)this.report();
     while(this.pend.length)this.peaks(this.pend.shift());
+    this.flushSpans();
     if(++this.cnt%6===0)this.port.postMessage({t:'pos',rel:this.run?rel:-1,beat,bar,run:this.run});
     return true;
   }

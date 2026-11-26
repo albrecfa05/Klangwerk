@@ -8,7 +8,7 @@ Klangwerk ist eine Musik-Oberfläche, die komplett im Browser läuft. Sie enthä
 - **Notenrolle:** MIDI-Dateien laden. Die Noten fallen auf die Klaviatur, es gibt einen Warte-Modus, Tempo-Regler und A–B-Schleifen. Eigenes Spiel lässt sich aufnehmen und als MIDI speichern
 - **Songs & Setlist:** Songs vorab planen. Jede Sektion bekommt Presets (oder VST-Slots), Drum-Kit und Looper-Szene. Abruf per Knopf, Pad oder DDJ
 - **Steuerung:** Geführte Einrichtung für M-Audio Oxygen 25, Pioneer DDJ-400 (beide Seiten, alle vier Pad-Modi) und Roland FP-30. Zusätzlich MIDI-Learn für jedes Bedienelement
-- **VST-Plugins:** In der **Desktop-App für Windows** lädst du VST3-Plugins direkt in 8 Slots ([desktop/README.md](desktop/README.md)). In der Browser-Version gehen die Parts per virtuellem MIDI-Port an FL Studio ([docs/FL-Studio-und-VST.md](docs/FL-Studio-und-VST.md)).
+- **VST-Plugins:** In der **Desktop-App für Windows** lädst du VST3-Plugins direkt in 8 Slots und kannst sie auch loopen ([desktop/README.md](desktop/README.md)). In der Browser-Version gehen die Parts per virtuellem MIDI-Port an FL Studio ([docs/FL-Studio-und-VST.md](docs/FL-Studio-und-VST.md)).
 
 ## Starten
 

@@ -32,7 +32,17 @@ public:
         MidiMessageCollector midi;
         std::atomic<float> gain { 1.0f };
         String id, name;
+        std::vector<float> ringL, ringR;   // Mitschnitt für den Looper
     };
+
+    // Zeitanker: welcher Ring-Sample-Index wann zu hören ist (Epoch-ms)
+    struct Anchor { int64 sample = 0; double heardMs = 0; };
+    static constexpr int numAnchors = 256;
+    Anchor anchors[numAnchors];
+    std::atomic<int> anchorIdx { 0 };
+    std::atomic<int64> written { 0 };
+    int ringLen = 0;
+    double latencyMs = 0, epochOffsetMs = 0;
 
     Slot slots[numSlots];
     std::atomic<float> master { 1.0f };
@@ -42,6 +52,7 @@ public:
 
     Engine()
     {
+        epochOffsetMs = (double) Time::currentTimeMillis() - Time::getMillisecondCounterHiRes();
         for (auto& s : slots) s.midi.reset (sampleRate);
         scratch.setSize (32, 8192);
         midiBuf.ensureSize (8192);
@@ -57,6 +68,8 @@ public:
         if (! sl.isLocked() || n > scratch.getNumSamples()) return;
 
         const float m = master.load();
+        const int64 base = written.load();
+        const double heard = epochOffsetMs + Time::getMillisecondCounterHiRes() + latencyMs;
 
         for (auto& s : slots)
         {
@@ -72,6 +85,18 @@ public:
 
             const int oc = jmin (2, p->getTotalNumOutputChannels());
             const float g = s.gain.load() * m;
+            if (ringLen > 0 && (int) s.ringL.size() == ringLen && oc > 0)
+            {
+                const float* l = buf.getReadPointer (0);
+                const float* r = buf.getReadPointer (oc > 1 ? 1 : 0);
+                const float sg = s.gain.load();
+                for (int j = 0; j < n; ++j)
+                {
+                    const auto w = (size_t) ((base + j) % ringLen);
+                    s.ringL[w] = l[j] * sg;
+                    s.ringR[w] = r[j] * sg;
+                }
+            }
             for (int c = 0; c < jmin (2, numOut); ++c)
             {
                 if (out[c] == nullptr || oc == 0) continue;
@@ -79,6 +104,44 @@ public:
                 FloatVectorOperations::addWithMultiply (out[c], buf.getReadPointer (src), g, n);
             }
         }
+
+        const int ai = (anchorIdx.load() + 1) % numAnchors;
+        anchors[ai] = { base, heard };
+        anchorIdx.store (ai);
+        written.store (base + n);
+    }
+
+    /** Holt den Klang der gewählten Slots zwischen zwei „gehörten“ Zeitpunkten (Epoch-ms),
+        umgerechnet auf die Abtastrate des Loopers. Ergebnis: L-Block gefolgt vom R-Block. */
+    std::vector<float> capture (const Array<int>& which, double t0, double t1, double targetRate) const
+    {
+        std::vector<float> outv;
+        if (ringLen <= 0 || t1 <= t0 || targetRate <= 0) return outv;
+        const auto a = anchors[anchorIdx.load()];
+        const double sr = sampleRate;
+        const double s0 = (double) a.sample + (t0 - a.heardMs) * sr / 1000.0;
+        const int n = (int) std::llround ((t1 - t0) / 1000.0 * targetRate);
+        const int64 now = written.load();
+        if (n <= 0 || n > 20'000'000 || s0 < (double) (now - ringLen + 1)) return outv;
+        outv.assign ((size_t) n * 2, 0.0f);
+        const double step = sr / targetRate;
+        for (int si : which)
+        {
+            if (! isPositiveAndBelow (si, numSlots)) continue;
+            const auto& s = slots[si];
+            if ((int) s.ringL.size() != ringLen) continue;
+            for (int k = 0; k < n; ++k)
+            {
+                const double pos = s0 + k * step;
+                const int64 i0 = (int64) std::floor (pos);
+                if (i0 + 1 >= now) break;
+                const float fr = (float) (pos - (double) i0);
+                const auto a0 = (size_t) (((i0 % ringLen) + ringLen) % ringLen), a1 = (size_t) (((i0 + 1) % ringLen + ringLen) % ringLen);
+                outv[(size_t) k]       += s.ringL[a0] + (s.ringL[a1] - s.ringL[a0]) * fr;
+                outv[(size_t) (n + k)] += s.ringR[a0] + (s.ringR[a1] - s.ringR[a0]) * fr;
+            }
+        }
+        return outv;
     }
 
     void audioDeviceAboutToStart (AudioIODevice* d) override
@@ -87,6 +150,9 @@ public:
         sampleRate = d->getCurrentSampleRate();
         blockSize  = d->getCurrentBufferSizeSamples();
         scratch.setSize (32, jmax (8192, blockSize * 2));
+        latencyMs = (d->getOutputLatencyInSamples() + blockSize) * 1000.0 / sampleRate;
+        ringLen = (int) (sampleRate * 70.0);   // 70 s reichen für 16 Takte bei 60 BPM
+        for (auto& s : slots) if (s.inst != nullptr) { s.ringL.assign ((size_t) ringLen, 0.0f); s.ringR.assign ((size_t) ringLen, 0.0f); }
         for (auto& s : slots)
         {
             s.midi.reset (sampleRate);
@@ -109,7 +175,11 @@ public:
             p->setRateAndBufferSizeDetails (sampleRate, blockSize);
             p->prepareToPlay (sampleRate, blockSize);
         }
+        std::vector<float> nl, nr;
+        if (p != nullptr && ringLen > 0) { nl.assign ((size_t) ringLen, 0.0f); nr.assign ((size_t) ringLen, 0.0f); }
         const ScopedLock sl (lock);
+        if (p != nullptr && ringLen > 0) { std::swap (slots[i].ringL, nl); std::swap (slots[i].ringR, nr); }
+        else if (p == nullptr) { slots[i].ringL.clear(); slots[i].ringR.clear(); }
         std::swap (slots[i].inst, p);
         slots[i].id = id;
         slots[i].name = name;
@@ -194,9 +264,18 @@ public:
 private:
     //==========================================================================
     // Weboberfläche + Brücke
-    static std::optional<WebBrowserComponent::Resource> resource (const String& url)
+    std::optional<WebBrowserComponent::Resource> resource (const String& url)
     {
         const auto path = url == "/" ? String ("index.html") : url.fromFirstOccurrenceOf ("/", false, false).upToFirstOccurrenceOf ("?", false, false);
+        if (path.startsWith ("capture/"))
+        {
+            const ScopedLock sl (captureLock);
+            auto it = captures.find (path.fromFirstOccurrenceOf ("/", false, false).getIntValue());
+            if (it == captures.end()) return std::nullopt;
+            WebBrowserComponent::Resource r { std::move (it->second), "application/octet-stream" };
+            captures.erase (it);
+            return r;
+        }
         const auto file = path.fromLastOccurrenceOf ("/", false, false);
         for (int i = 0; i < KlangwerkWeb::namedResourceListSize; ++i)
         {
@@ -223,7 +302,7 @@ private:
                                         .withBackgroundColour (Colour (0xff0b0c0e)))
             .withNativeIntegrationEnabled()
             .withKeepPageLoadedWhenBrowserIsHidden()
-            .withResourceProvider ([] (const String& url) { return resource (url); })
+            .withResourceProvider ([this] (const String& url) { return resource (url); })
             .withNativeFunction ("kwInfo", [] (const Array<var>&, auto done)
             {
                 DynamicObject::Ptr o = new DynamicObject();
@@ -244,6 +323,22 @@ private:
                 const float g = jlimit (0.0f, 2.0f, (float) (double) a[1]);
                 if (i < 0) engine.master = g; else if (i < Engine::numSlots) engine.slots[i].gain = g;
                 done (true);
+            })
+            .withNativeFunction ("kwCapture", [this] (const Array<var>& a, auto done)
+            {
+                Array<int> which;
+                if (auto* arr = a[0].getArray()) for (auto& v : *arr) which.add ((int) v);
+                auto data = engine.capture (which, (double) a[1], (double) a[2], (double) a[3]);
+                DynamicObject::Ptr o = new DynamicObject();
+                if (data.empty()) { o->setProperty ("id", 0); done (var (o.get())); return; }
+                const int n = (int) (data.size() / 2);
+                std::vector<std::byte> bytes (data.size() * sizeof (float));
+                std::memcpy (bytes.data(), data.data(), bytes.size());
+                int id;
+                { const ScopedLock sl (captureLock); id = ++captureId; captures[id] = std::move (bytes); if (captures.size() > 16) captures.erase (captures.begin()); }
+                o->setProperty ("id", id);
+                o->setProperty ("n", n);
+                done (var (o.get()));
             })
             .withNativeFunction ("kwAudioSettings", [this] (const Array<var>&, auto done) { showAudioSettings(); done (true); })
             .withEventListener ("kwSlotMidi", [this] (var v)
@@ -491,6 +586,9 @@ private:
     std::map<String, std::unique_ptr<MidiInput>> inputs;
     std::map<String, std::unique_ptr<MidiOutput>> outputs;
     std::unique_ptr<MidiDeviceListConnection> midiConn;
+    CriticalSection captureLock;
+    std::map<int, std::vector<std::byte>> captures;
+    int captureId = 0;
     WebBrowserComponent web { webOptions() };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)

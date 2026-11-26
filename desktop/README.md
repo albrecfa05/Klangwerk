@@ -21,7 +21,8 @@ Geladene Plugins und ihre Einstellungen merkt sich die App (`%APPDATA%\Klangwerk
 
 - MIDI-Geräte öffnet die App selbst. Unter Windows kann meist nur ein Programm ein MIDI-Gerät gleichzeitig nutzen: rekordbox oder FL Studio vorher schließen.
 - Der interne Synth läuft über das Browser-Audio, die Plugins über das gewählte Audio-Gerät. Beide klingen gleichzeitig.
-- Der Looper nimmt bisher nur den internen Synth, die Drums und den Audio-Eingang auf, keine Plugin-Klänge.
+- **Plugins im Looper:** Als Quelle einer Loop-Spur funktionieren *Alles inkl. VST*, *Part A* / *Part B* (inklusive des Plugins, auf das der Part gerade spielt) oder gezielt *VST-Slot 1–8*. Die App schneidet jeden Slot im Hintergrund mit. Sobald eine Aufnahme oder ein Overdub endet, wird genau der Abschnitt in die Spur gemischt, den du gehört hast. Das dauert einen kurzen Moment. Danach verhält sich die Spur wie jede andere (Undo, Szenen, WAV-Export).
+- Klingt eine Plugin-Spur minimal versetzt, kannst du das unter *Steuerung → Looper-Ausgleich für Plugins (ms)* korrigieren.
 - Stürzt ein Plugin beim Suchen ab, startet die App neu und überspringt es beim nächsten Suchen.
 
 ## Selbst bauen
