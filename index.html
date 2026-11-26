@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Klangwerk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/klangwerk.css">
+</head>
+<body data-view="alles">
+<div class="overlay" id="start"><div class="card">
+  <h1>KLANGWERK</h1>
+  <p>Zwei 8-stimmige Polysynth-Parts im Stil der frühen 80er, eine 8-Spur-Loopstation und eine Notenrolle mit fallenden Noten. FP-30, Oxygen und DDJ-400 kannst du gleichzeitig benutzen.</p>
+  <button id="go">Audio starten</button>
+  <p style="font-size:13px">In Chrome oder Edge öffnen und den MIDI-Zugriff erlauben.</p>
+</div></div>
+
+<header class="top">
+  <div class="brand">KLANGWERK<small>P-8 · Loopstation · Notenrolle</small></div>
+  <div class="grp">
+    <button id="play" data-act="transport" data-learn="a:transport" data-name="Start/Stop" style="min-width:74px">Start</button>
+    <label>BPM <input id="bpm" type="number" min="40" max="240" step="1" value="120"></label>
+    <button data-act="tap" data-learn="a:tap" data-name="Tap">Tap</button>
+    <button id="metro" data-act="metro" data-learn="a:metro" data-name="Klick">Klick</button>
+    <div class="beats" id="beats"><i></i><i></i><i></i><i></i></div>
+  </div>
+  <nav class="views" id="views" aria-label="Ansichten"><button data-v="alles">Alles</button><button data-v="synth">Synth</button><button data-v="looper">Looper</button><button data-v="mixer">Mixer</button><button data-v="keyboard">Keyboard</button><button data-v="songs">Songs</button><button data-v="steuerung">Steuerung</button></nav>
+  <div class="spacer"></div>
+  <div class="grp">
+    <span id="info"></span>
+    <label>Master <input type="range" id="vol" min="0" max="1" step="0.01" value="0.8"></label>
+    <button id="learnBtn">MIDI-Learn</button>
+    <button id="midiBtn">MIDI <i class="led" id="midiLed"></i></button>
+    <button data-act="panic" data-learn="a:panic" data-name="Panik">Panik</button>
+  </div>
+</header>
+
+<div class="perf" id="perf">
+  <button data-act="songPrev" data-learn="a:songPrev" data-name="Voriger Song" aria-label="Voriger Song">‹</button>
+  <div class="pfs"><small>Song</small><b id="pfSong">–</b></div>
+  <button data-act="songNext" data-learn="a:songNext" data-name="Nächster Song" aria-label="Nächster Song">›</button>
+  <div class="pfsec" id="pfSecs"></div>
+  <button data-act="secPrev" data-learn="a:secPrev" data-name="Vorige Sektion">‹ Sektion</button>
+  <button data-act="secNext" data-learn="a:secNext" data-name="Nächste Sektion">Sektion ›</button>
+</div>
+<section class="synth" id="synth" data-view="synth">
+  <div class="cheek l"></div>
+  <div class="face">
+    <div class="ftop">
+      <div class="logo">KLANGWERK</div>
+      <div class="model"><b>P-8</b>8 Voice Polyphonic Synthesizer</div>
+      <div class="lcd" id="lcd">A-01 <small></small></div>
+      <select id="setup" aria-label="Setup laden" style="max-width:250px"></select>
+      <div class="psw" id="parts"><label>Edit</label><button data-p="0" class="on" style="--bc:#e8642c" data-learn="a:partA" data-name="Part A"><i></i>PART A</button><button data-p="1" style="--bc:#9fd8d4" data-learn="a:partB" data-name="Part B"><i></i>PART B</button></div>
+    </div>
+    <div class="rows" id="rows"></div>
+    <div class="bank">
+      <span class="ttl">Patch</span><button id="bankPg" class="cond" style="min-width:70px">Bank 1</button>
+      <div class="pbs" id="bank"></div>
+      <div class="ptools">
+        <button data-act="presetPrev" data-learn="a:presetPrev" data-name="Preset zurück" aria-label="Voriges Preset">‹</button>
+        <select id="preset" aria-label="Preset"></select>
+        <button data-act="presetNext" data-learn="a:presetNext" data-name="Preset vor" aria-label="Nächstes Preset">›</button>
+        <input type="text" id="pname" placeholder="Name für Preset">
+        <button id="psave">Speichern</button><button id="pdel">Löschen</button>
+        <button id="exp">Export</button><button id="impBtn">Import</button><input type="file" id="imp" accept=".json" hidden>
+      </div>
+    </div>
+  </div>
+  <div class="cheek r"></div>
+</section>
+
+<section class="deck" id="looper" data-view="looper">
+  <div class="dh">
+    <h2>Loopstation</h2>
+    <button id="cntIn" data-learn="a:countIn" data-name="Einzähler">Einzähler</button>
+    <button id="quant" class="on">Auf Takt warten</button>
+    <label>Nach Aufnahme <select id="after"><option value="play">abspielen</option><option value="od">weiter overdubben</option></select></label>
+    <button id="inBtn">Audio-Eingang</button><button id="monBtn">Mithören</button>
+    <span class="spacer"></span>
+    <button data-act="stopAll" data-learn="a:stopAll" data-name="Alle Spuren stoppen">Alle stoppen</button>
+    <button data-act="startAll" data-learn="a:startAll" data-name="Alle Spuren starten">Alle starten</button>
+    <button id="clrAll">Alle löschen</button>
+    <button id="wavBtn">Mix als WAV</button>
+  </div>
+  <div class="lgrid">
+    <div class="lanes" id="lanes"></div>
+    <div class="side">
+      <h3>Oxygen-Regler</h3>
+      <div class="segh" id="kModes" data-learn="a:knobMode" data-name="Regler-Modus"><button data-k="mix" class="on">Mixer</button><button data-k="syn">Synth</button></div>
+      <div class="oxy" id="oxy"></div>
+      <button id="oxyWiz" style="width:100%">Oxygen einrichten (geführt) …</button>
+      <h3 style="margin-top:16px">Pads</h3>
+      <div class="segh" id="padModes" data-learn="a:padMode" data-name="Pad-Modus"><button data-m="0">Drums</button><button data-m="1">Presets</button><button data-m="2" class="on">Looper</button><button data-m="3">Song</button></div>
+      <div class="segh" id="kits" hidden><button data-kit="0" class="on">Elektro</button><button data-kit="1">Orchester</button></div>
+      <div class="pads" id="pads"></div>
+      <div class="hint" id="padHint"></div>
+      <h3 style="margin-top:16px">Szenen</h3>
+      <div class="scn" id="scenes"><button data-s="0" data-learn="a:scene0" data-name="Szene 1">1</button><button data-s="1" data-learn="a:scene1" data-name="Szene 2">2</button><button data-s="2" data-learn="a:scene2" data-name="Szene 3">3</button><button data-s="3" data-learn="a:scene3" data-name="Szene 4">4</button><button id="scSave">Speichern</button></div>
+      <div class="hint">Eine Szene merkt sich, welche Spuren laufen und welche stumm sind.</div>
+    </div>
+  </div>
+</section>
+
+<section class="deck" id="mixer" data-view="mixer">
+  <div class="dh"><h2>Mixer</h2>
+    <label>Crossfader <span class="cond">A</span><input type="range" id="xfade" min="0" max="1" step="0.01" value="0.5" style="width:180px" aria-label="Crossfader Part A / Part B"><span class="cond">B</span></label>
+    <button id="xfC">Mitte</button>
+    <span class="hint" style="margin:0">Fader: ziehen, Mausrad, Doppelklick = Standard. Kanal-Fader am DDJ = Part A / B.</span>
+  </div>
+  <div class="mixer" id="mixStrips"></div>
+</section>
+<section class="notes" id="noten" data-view="keyboard">
+  <div class="nbar">
+    <h2>Noten</h2>
+    <button id="sPlay" data-act="songPlay" data-learn="a:songPlay" data-name="Song Play/Pause">Abspielen</button>
+    <button id="sHome" data-act="songHome" data-learn="a:songHome" data-name="Song zum Anfang">Anfang</button>
+    <input type="range" id="sPos" min="0" max="1000" value="0" aria-label="Position">
+    <span class="tm" id="sTime">0:00 / 0:00</span>
+    <label>Tempo <input type="range" id="sTempo" min="25" max="150" value="100" style="width:90px"><span id="sTempoV" class="tm" style="min-width:40px">100%</span></label>
+    <button id="sWait">Auf mich warten</button>
+    <button id="sA">A</button><button id="sB">B</button><button id="sAB">A–B aus</button>
+    <span class="spacer"></span>
+    <select id="sDemo" aria-label="Beispiel laden"><option value="">Beispiel laden …</option><option value="bach">Bach – Präludium C-Dur</option><option value="ode">Beethoven – Ode an die Freude</option></select>
+    <button id="sLoad">MIDI-Datei laden</button><input type="file" id="sFile" accept=".mid,.midi" hidden>
+    <button id="sRec">Aufnehmen</button><button id="sSave" disabled>Als MIDI speichern</button>
+  </div>
+  <div class="groups" id="groups"><span style="color:var(--dim)">Lade eine MIDI-Datei (oder zieh sie auf die Notenrolle), wähle ein Beispiel oder spiel einfach los: Deine Noten steigen dann nach oben.</span></div>
+  <div class="stage">
+    <canvas id="roll"></canvas>
+    <div class="piano" id="piano"></div>
+  </div>
+  <div class="nfoot">
+    <span id="score">–</span>
+    <label>Notennamen <select id="nNames"><option value="de">Deutsch (C D E … H)</option><option value="en">International (C D E … B)</option><option value="off">nur C</option></select></label>
+    <label>Klaviatur <select id="kRange"><option value="auto">automatisch</option><option value="25">25 Tasten</option><option value="37">37 Tasten</option><option value="49">49 Tasten</option><option value="61" selected>61 Tasten</option><option value="88">88 Tasten</option></select></label>
+    <label>Zoom <input type="range" id="sZoom" min="60" max="420" value="170" style="width:90px"></label>
+    <span>Bildschirm-Klaviatur und Computer-Tastatur spielen den gewählten Part.</span>
+  </div>
+</section>
+
+<section class="deck" id="songs" data-view="songs">
+  <div class="dh"><h2>Songs &amp; Setlist</h2>
+    <button id="sgNew">Neuer Song</button><button id="sgDup">Duplizieren</button><button id="sgDel">Löschen</button>
+    <span class="spacer"></span>
+    <button id="sgExp">Setlist exportieren</button><button id="sgImpB">Setlist importieren</button><input type="file" id="sgImp" accept=".json" hidden>
+  </div>
+  <div class="sgrid"><div class="sglist" id="sgList"></div><div class="sged" id="sgEd"></div></div>
+</section>
+<section class="deck" id="steuerung" data-view="steuerung">
+  <div class="dh"><h2>Steuerung</h2><span class="hint" style="margin:0">Jede Funktion einmal zeigen lassen und am Gerät drücken – danach ist alles zugewiesen.</span></div>
+  <div class="cgrid">
+    <div class="cbox"><h3>Geräte &amp; geführte Einrichtung</h3><div id="ctlDevs"></div></div>
+    <div class="cbox"><h3>DDJ-400: Pad-Modi belegen</h3><p class="hint" style="margin-top:0">Links und rechts sind gleich aufgebaut. Für jede Seite und jeden Modus (oben am Gerät wählbar) legst du fest, was die 8 Pads tun.</p><table class="pmt" id="padmapT"></table></div>
+    <div class="cbox wide"><h3>VST-Plugins über FL Studio</h3>
+      <p class="hint" style="margin-top:0">Klangwerk schickt die Noten eines Parts per MIDI an FL Studio, dort spielen deine VST-Plugins. Pro Slot: Name des Instruments, virtueller MIDI-Port (loopMIDI) und Kanal. Anleitung: docs/FL-Studio-und-VST.md im Repo.</p>
+      <div id="partOuts"></div>
+      <table class="pmt" id="slotT"></table>
+    </div>
+  </div>
+</section>
+<details class="help"><summary>Kurzanleitung</summary>
+<ul>
+  <li><b>Geräte:</b> Unter „MIDI“ legst du für jedes Gerät fest, welchen Part es spielt (A, B, A+B) oder ob es nur steuert. Voreinstellung: FP-30 → Part A, Oxygen → Part B, DDJ-400 → Steuerung.</li>
+  <li><b>Steuerung:</b> Unter „Steuerung“ startest du für jedes Gerät eine geführte Einrichtung: Klangwerk zeigt jede Funktion, du drückst den passenden Knopf. <b>Oxygen:</b> Danach: Regler = Mixer (Lautstärke Spur 1–8) oder Synth (Cutoff, Reso, Hüllkurven, Effekte), umschalten mit der Loop-Taste. Play/Stop = Transport, Record = Aufnahme auf der gewählten Spur, &lt;&lt; / &gt;&gt; = Spur wählen. Die 8 Pads steuern im Pad-Modus „Looper“ die Spuren 1–8.</li>
+  <li><b>Looper:</b> Rec nimmt genau die eingestellte Länge auf. Danach drücken = Overdub an/aus. Stop/Start schaltet am nächsten Taktanfang. Jede Spur hat eigene Quelle (alles, Part A, Part B, Drums, Audio-Eingang), Länge, Lautstärke, Panorama, Dub-Abklingen und Rückwärts.</li>
+  <li><b>Noten:</b> MIDI-Datei laden, für jede Spur wählen: „Ich spiele“, „Autoplay“, „Nur anzeigen“. Mit „Auf mich warten“ hält die Rolle an, bis du die richtigen Tasten triffst. A/B setzt eine Übungsschleife.</li>
+  <li><b>DDJ-400:</b> Hot-Cue-Pads → Pads im gewählten Modus, Beat-Loop-Pads → Looper-Spuren 1–8, Sampler-Pads → Drums, Beat-Jump-Pads → Presets, Play (Deck 1) → Start/Stop. Wenn etwas nicht reagiert: MIDI-Monitor ansehen und per MIDI-Learn zuweisen.</li>
+  <li><b>Tastatur:</b> A W S E D F T G Z H U J K spielen Töne (deutsches Layout), Y / X = Oktave, 1–8 = Pads, Leertaste = Start/Stop.</li>
+  <li><b>Orchester:</b> Setup „Orchester · Time-Stil“ lädt Streicher (Part A) und tiefes Blech (Part B), das Orchester-Schlagwerk und 62 BPM. Patch-Bank 2 enthält alle Orchester-Sounds. Für echte Orchesterklänge: unter MIDI → Ausgänge einen Part auf „Nur MIDI-Ausgang“ stellen und in einer DAW mit VST-Plugins empfangen (Part A = Kanal 1, Part B = Kanal 2).</li>
+  <li><b>FP-30:</b> Lautstärke am Piano herunterdrehen (oder Local Off), damit der interne Klavierklang nicht mitklingt.</li>
+</ul></details>
+
+<aside class="drawer" id="drawer" hidden>
+  <div style="display:flex;align-items:center;gap:8px"><b class="cond" style="font-size:20px;letter-spacing:.1em">MIDI</b><span class="spacer"></span><button id="drawerX">Schließen</button></div>
+  <h2>Geräte</h2><div id="devs"><div class="row"><span>Noch keine Geräte erkannt.</span></div></div>
+  <h2>Ausgänge</h2><div class="row"><span>VST/FL-Studio-Ausgänge stellst du unter „Steuerung“ ein.</span></div>
+  <h2>Zuweisungen (MIDI-Learn)</h2><div id="maps"></div>
+  <div style="margin-top:8px"><button id="mapClr">Alle Zuweisungen löschen</button></div>
+  <h2>Monitor</h2><div id="mon"></div>
+</aside>
+<div class="tour" id="tour" hidden>
+  <div class="tdev" id="tDev"></div>
+  <div class="ttitle" id="tTitle"></div>
+  <div class="ttxt" id="tTxt"></div>
+  <div class="task" id="tAsk"></div>
+  <div class="wprog" id="tProg"></div>
+  <div class="mrow"><button id="tBack">Zurück</button><button id="tSkip">Überspringen</button><button id="tEnd" class="on">Beenden</button></div>
+</div>
+<div class="tour" id="tourAsk" hidden></div>
+<div class="toast" id="toast"></div>
+<script src="js/worklets.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
