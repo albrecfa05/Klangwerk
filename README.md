@@ -14,7 +14,7 @@ Klangwerk ist eine Musik-Oberfläche, die komplett im Browser läuft. Sie enthä
 
 **Am einfachsten:** **https://albrecfa05.github.io/Klangwerk/** in **Chrome oder Edge** öffnen (Firefox und Safari unterstützen Web MIDI nicht zuverlässig).
 
-**Desktop-App (Windows, mit VST3-Plugins):** unter *Actions → Desktop-App (Windows)* das Paket *Klangwerk-Windows* herunterladen, Details in [desktop/README.md](desktop/README.md).
+**Desktop-App (Windows, mit VST3-Plugins):** [Klangwerk-Windows.zip herunterladen](https://github.com/albrecfa05/Klangwerk/releases/latest/download/Klangwerk-Windows.zip) (immer die neueste Version, keine Anmeldung nötig). Details in [desktop/README.md](desktop/README.md).
 
 **Lokal:** Repo herunterladen und `index.html` per Doppelklick in Chrome/Edge öffnen. Eine Installation oder ein Server ist nicht nötig. Wer lieber eine einzige Datei weitergibt: `python3 tools/build_single.py` erzeugt `dist/Klangwerk.html`.
 

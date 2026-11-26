@@ -4,7 +4,7 @@ Die Desktop-App zeigt dieselbe Klangwerk-Oberfläche wie die Webseite und kann z
 
 ## Installieren
 
-1. Unter **Actions → Desktop-App (Windows)** im neuesten erfolgreichen Lauf das Paket **Klangwerk-Windows** herunterladen (bzw. bei einem Release die Datei `Klangwerk-Windows.zip`).
+1. **[Klangwerk-Windows.zip herunterladen](https://github.com/albrecfa05/Klangwerk/releases/latest/download/Klangwerk-Windows.zip)**. Das ist immer die neueste veröffentlichte Version, eine Anmeldung ist nicht nötig. Alle Versionen stehen unter *Releases*.
 2. Entpacken und `Klangwerk.exe` starten. Windows SmartScreen warnt beim ersten Start, weil die App nicht signiert ist: *Weitere Informationen → Trotzdem ausführen*.
 3. Voraussetzung ist die Microsoft-Edge-WebView2-Laufzeit. Auf Windows 10/11 ist sie normalerweise schon installiert.
 
