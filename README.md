@@ -12,7 +12,7 @@ Klangwerk ist eine Musik-Oberfläche, die komplett im Browser läuft. Sie enthä
 
 ## Starten
 
-**Am einfachsten:** die GitHub-Pages-Seite des Repos in **Chrome oder Edge** öffnen (Firefox und Safari unterstützen Web MIDI nicht zuverlässig).
+**Am einfachsten:** **https://albrecfa05.github.io/Klangwerk/** in **Chrome oder Edge** öffnen (Firefox und Safari unterstützen Web MIDI nicht zuverlässig).
 
 **Lokal:** Repo herunterladen und `index.html` per Doppelklick in Chrome/Edge öffnen. Eine Installation oder ein Server ist nicht nötig. Wer lieber eine einzige Datei weitergibt: `python3 tools/build_single.py` erzeugt `dist/Klangwerk.html`.
 
