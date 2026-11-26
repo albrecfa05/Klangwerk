@@ -242,7 +242,7 @@ class Looper extends AudioWorkletProcessor{
             const t=this.T[k];if(!t.L)continue;
             const len=t.L.length,pos=rel%len,idx=t.rev?len-1-pos:pos;
             if(isBar){if(t.pStop){t.stop=true;t.pStop=false;changed=true;}if(t.pStart){t.stop=false;t.pStart=false;changed=true;}}
-            let xl,xr;switch(t.src){case 1:xl=AL;xr=AR;break;case 2:xl=BL;xr=BR;break;case 3:xl=DL;xr=DR;break;case 4:xl=IL;xr=IR;break;case 5:case 10:case 11:case 12:case 13:case 14:case 15:case 16:case 17:xl=0;xr=0;break;default:xl=AL+BL+DL+IL;xr=AR+BR+DR+IR;}
+            let xl,xr;switch(t.src){case 1:xl=AL;xr=AR;break;case 2:xl=BL;xr=BR;break;case 3:xl=DL;xr=DR;break;case 4:xl=IL;xr=IR;break;case 6:xl=IL;xr=IL;break;case 7:xl=IR;xr=IR;break;case 5:case 10:case 11:case 12:case 13:case 14:case 15:case 16:case 17:xl=0;xr=0;break;default:xl=AL+BL+DL+IL;xr=AR+BR+DR+IR;}
             const st=t.st;
             if(st==='arm'&&isBar&&rel>=t.minRel){t.st='rec';t.left=len;changed=true;}
             if(t.st==='rec'){if(t.r0<0)t.r0=rel;t.L[idx]=xl;t.R[idx]=xr;if(--t.left<=0){t.has=true;this.spans.push({t:'span',i:k,r0:t.r0,r1:rel+1,src:t.src});t.r0=-1;t.st=this.after==='od'?'od':'play';if(t.st==='od'){this.backup(t);t.r0=rel+1;}this.pend.push(k);changed=true;}}

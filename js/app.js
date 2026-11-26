@@ -266,8 +266,9 @@ $('#vol').addEventListener('input',e=>{MX.M.n=+e.target.value;applyMix();renderM
 const lanesEl=$('#lanes');
 const DESK=!!window.KWD;
 const SRC=DESK?['Alles inkl. VST','Part A','Part B','Drums','Eingang']:['Alles','Part A','Part B','Drums','Eingang'],BARS=[1,2,4,8,16];
-const srcName=k=>k>=10?'VST-Slot '+(k-9):SRC[k]||'';
-const srcOpts=()=>SRC.map((s,k)=>`<option value="${k}">${s}</option>`).join('')+(DESK?'<optgroup label="Nur Plugin">'+Array.from({length:8},(_,k)=>`<option value="${10+k}">VST-Slot ${k+1}</option>`).join('')+'</optgroup>':'');
+const SRCX={6:'Eingang 1',7:'Eingang 2'};
+const srcName=k=>k>=10?'VST-Slot '+(k-9):SRCX[k]||SRC[k]||'';
+const srcOpts=()=>SRC.map((s,k)=>`<option value="${k}">${k===4?'Eingang (beide)':s}</option>`).join('')+'<option value="6">Eingang 1</option><option value="7">Eingang 2</option>'+(DESK?'<optgroup label="Nur Plugin">'+Array.from({length:8},(_,k)=>`<option value="${10+k}">VST-Slot ${k+1}</option>`).join('')+'</optgroup>':'');
 lanesEl.innerHTML=TC.map((c,i)=>`<div class="lane" data-i="${i}" style="--tc:${c}">
  <div class="ln"><b>${i+1}</b><span>leer</span></div>
  <div class="lcfg"><select data-src aria-label="Quelle Spur ${i+1}">${srcOpts()}</select><select data-bars aria-label="Länge Spur ${i+1}">${BARS.map(b=>`<option value="${b}"${b===2?' selected':''}>${b} Takt${b>1?'e':''}</option>`).join('')}</select></div>
@@ -322,10 +323,65 @@ function wav(L,R,sr){const n=L.length,b=new ArrayBuffer(44+n*4),v=new DataView(b
   let o=44;for(let i=0;i<n;i++){for(const x of [L[i],R[i]]){const s=Math.max(-1,Math.min(1,x));v.setInt16(o,s<0?s*32768:s*32767,true);o+=2;}}return new Blob([b],{type:'audio/wav'});}
 $('#wavBtn').addEventListener('click',()=>{if(A)A.loop.port.postMessage({t:'export'});});
 $('#clrAll').addEventListener('click',()=>{if(!A)return;const b=$('#clrAll');if(b.dataset.c){A.loop.port.postMessage({t:'clearAll'});b.textContent='Alle löschen';delete b.dataset.c;toast('Alle Spuren gelöscht');}else{b.dataset.c=1;b.textContent='Wirklich?';setTimeout(()=>{b.textContent='Alle löschen';delete b.dataset.c;},2500);}});
-$('#inBtn').addEventListener('click',async()=>{if(!A)return;const b=$('#inBtn');
-  if(A.inStream){A.inStream.getTracks().forEach(t=>t.stop());A.inSrc.disconnect();A.inStream=null;b.classList.remove('on');toast('Audio-Eingang aus');return;}
-  try{const s=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});A.inStream=s;A.inSrc=A.ctx.createMediaStreamSource(s);A.inSrc.connect(A.inGain);b.classList.add('on');toast('Audio-Eingang aktiv – Quelle „Eingang“ oder „Alles“ wählen');}
-  catch(e){toast('Kein Zugriff auf den Audio-Eingang');}});
+/* ===== Audio-Eingang (Interface, z. B. Komplete Audio 2) mit Vocal-Hall ===== */
+const IN=Object.assign({dev:'',mode:'1',gain:1,lowcut:true,rev:'mon',revMix:.3,revSize:2.2},LS.get('kw.in',{}));
+let inC=null;
+function saveIn(){LS.set('kw.in',IN);}
+function inChain(){if(inC||!A)return inC;const c=A.ctx,G=()=>c.createGain();
+  inC={split:c.createChannelSplitter(2),g1:G(),g2:G(),merge:c.createChannelMerger(2),lc:c.createBiquadFilter(),trim:G(),dry:G(),send:G(),conv:c.createConvolver(),wet:G(),src:null};
+  inC.lc.type='highpass';inC.lc.Q.value=0.7;
+  inC.merge.connect(inC.lc).connect(inC.trim);inC.trim.connect(inC.dry).connect(A.inGain);
+  inC.trim.connect(inC.send).connect(inC.conv).connect(inC.wet);
+  inC.conv.buffer=makeIR(c,IN.revSize);applyIn();return inC;}
+function routeIn(){if(!inC)return;const {split,g1,g2,merge}=inC;try{split.disconnect();g1.disconnect();g2.disconnect();}catch(e){}
+  split.connect(g1,0);split.connect(g2,1);
+  const m=IN.mode;g1.gain.value=m==='m'?0.5:1;g2.gain.value=m==='m'?0.5:1;
+  if(m==='1'){g1.connect(merge,0,0);g1.connect(merge,0,1);}
+  else if(m==='2'){g2.connect(merge,0,0);g2.connect(merge,0,1);}
+  else if(m==='m'){g1.connect(merge,0,0);g1.connect(merge,0,1);g2.connect(merge,0,0);g2.connect(merge,0,1);}
+  else{g1.connect(merge,0,0);g2.connect(merge,0,1);}}
+function applyIn(){if(!inC)return;const t=A.ctx.currentTime;
+  inC.trim.gain.setTargetAtTime(IN.gain,t,0.02);inC.lc.frequency.value=IN.lowcut?90:10;
+  try{inC.wet.disconnect();}catch(e){}
+  if(IN.rev==='rec')inC.wet.connect(A.inGain);else if(IN.rev==='mon')inC.wet.connect(A.master);
+  inC.send.gain.setTargetAtTime(IN.rev==='off'?0:IN.revMix,t,0.02);routeIn();}
+let irT=0;function setRevSize(v){IN.revSize=v;saveIn();clearTimeout(irT);irT=setTimeout(()=>{if(inC)inC.conv.buffer=makeIR(A.ctx,v);},200);}
+async function startInput(){if(!A)return false;inChain();
+  try{if(A.inStream){A.inStream.getTracks().forEach(t=>t.stop());try{inC.src.disconnect();}catch(e){}}
+    const s=await navigator.mediaDevices.getUserMedia({audio:{deviceId:IN.dev?{exact:IN.dev}:undefined,channelCount:{ideal:2},echoCancellation:false,noiseSuppression:false,autoGainControl:false,latency:{ideal:0.005}}});
+    A.inStream=s;inC.src=A.ctx.createMediaStreamSource(s);inC.src.connect(inC.split);routeIn();
+    $('#inBtn').classList.add('on');const st=s.getAudioTracks()[0],cc=(st.getSettings&&st.getSettings().channelCount)||'?';
+    toast('Audio-Eingang aktiv: '+(st.label||'Standardgerät')+' ('+cc+' Kanal'+(cc===1?'':'e')+')');renderIn();return true;}
+  catch(e){toast(IN.dev?'Gerät nicht verfügbar – Standardgerät wählen oder Interface prüfen':'Kein Zugriff auf den Audio-Eingang');return false;}}
+function stopInput(){if(!A||!A.inStream)return;A.inStream.getTracks().forEach(t=>t.stop());try{inC.src.disconnect();}catch(e){}A.inStream=null;$('#inBtn').classList.remove('on');renderIn();}
+async function renderIn(){const el=$('#inPanel');if(!el)return;let devs=[];
+  try{devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='audioinput');}catch(e){}
+  const on=!!(A&&A.inStream);
+  el.innerHTML=`<h3>Audio-Eingang (Interface)</h3>
+   <div class="inrow"><button id="inOn" class="${on?'on':''}">${on?'Eingang an':'Eingang aus'}</button>
+   <label>Gerät <select id="inDev"><option value="">Standard-Aufnahmegerät</option>${devs.map(d=>`<option value="${esc(d.deviceId)}"${d.deviceId===IN.dev?' selected':''}>${esc(d.label||'Eingang '+d.deviceId.slice(0,6))}</option>`).join('')}</select></label>
+   <label>Kanäle <select id="inMode">${[['1','Eingang 1 (Mono)'],['2','Eingang 2 (Mono)'],['m','1 + 2 zusammen (Mono)'],['s','1 + 2 getrennt (Stereo L/R)']].map(([k,l])=>`<option value="${k}"${IN.mode===k?' selected':''}>${l}</option>`).join('')}</select></label>
+   <label>Gain <input type="range" id="inGain" min="0" max="4" step="0.01" value="${IN.gain}"><span class="tm" id="inGainV">${dB(IN.gain)} dB</span></label>
+   <label><input type="checkbox" id="inLc"${IN.lowcut?' checked':''}> Low-Cut 90 Hz</label>
+   <button id="inMon" class="${A&&A.mon.gain.value>0.5?'on':''}">Mithören (trocken)</button></div>
+   <div class="inrow"><b class="cond" style="letter-spacing:.1em">VOCAL-HALL</b>
+   <label><select id="inRev">${[['off','Aus'],['mon','Nur zum Abhören'],['rec','Mit aufnehmen']].map(([k,l])=>`<option value="${k}"${IN.rev===k?' selected':''}>${l}</option>`).join('')}</select></label>
+   <label>Anteil <input type="range" id="inRevMix" min="0" max="1" step="0.01" value="${IN.revMix}"></label>
+   <label>Raumgröße <input type="range" id="inRevSize" min="0.5" max="6" step="0.1" value="${IN.revSize}"><span class="tm" id="inRevSizeV">${(+IN.revSize).toFixed(1)} s</span></label></div>
+   <p class="hint">Tipp: Am Komplete Audio 2 den Direct-Monitor einschalten (verzögerungsfrei) und hier „Mithören“ aus lassen. Der Hall „nur zum Abhören“ kommt dann vom Computer dazu, aufgenommen wird trocken. Im Looper als Quelle „Eingang 1“, „Eingang 2“ oder „Eingang (beide)“ wählen. Bei „1 + 2 getrennt“ kannst du z. B. Gesang und Gitarre auf zwei Spuren gleichzeitig aufnehmen.</p>`;}
+$('#inBtn').addEventListener('click',async()=>{if(!A)return;if(A.inStream)stopInput();else await startInput();});
+document.addEventListener('click',async e=>{if(!e.target.closest('#inPanel'))return;const id=e.target.id;
+  if(id==='inOn'){if(A&&A.inStream)stopInput();else await startInput();}
+  if(id==='inMon'&&A){const on=A.mon.gain.value<0.5;A.mon.gain.value=on?1:0;$('#monBtn').classList.toggle('on',on);e.target.classList.toggle('on',on);}});
+document.addEventListener('change',async e=>{if(!e.target.closest('#inPanel'))return;const t=e.target;
+  if(t.id==='inDev'){IN.dev=t.value;saveIn();if(A&&A.inStream)await startInput();}
+  if(t.id==='inMode'){IN.mode=t.value;saveIn();routeIn();}
+  if(t.id==='inLc'){IN.lowcut=t.checked;saveIn();applyIn();}
+  if(t.id==='inRev'){IN.rev=t.value;saveIn();applyIn();}});
+document.addEventListener('input',e=>{if(!e.target.closest('#inPanel'))return;const t=e.target;
+  if(t.id==='inGain'){IN.gain=+t.value;saveIn();applyIn();$('#inGainV').textContent=dB(IN.gain)+' dB';}
+  if(t.id==='inRevMix'){IN.revMix=+t.value;saveIn();applyIn();}
+  if(t.id==='inRevSize'){setRevSize(+t.value);$('#inRevSizeV').textContent=(+t.value).toFixed(1)+' s';}});
 $('#monBtn').addEventListener('click',()=>{if(!A)return;const on=A.mon.gain.value<0.5;A.mon.gain.value=on?1:0;$('#monBtn').classList.toggle('on',on);});
 const scenes=LS.get('kw.scenes',[null,null,null,null]);let scSave=false;
 $('#scSave').addEventListener('click',()=>{scSave=!scSave;$('#scSave').classList.toggle('on',scSave);info(scSave?'Szene wählen, um den aktuellen Zustand zu speichern':'');});
@@ -616,7 +672,7 @@ function setView(v,push=true){
   viewSecs.forEach(s=>{s.hidden=!VIS[s.dataset.view];});
   $$('#views button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   if(push&&location.hash!=='#'+v)try{history.replaceState(null,'','#'+v);}catch(e){}
-  if(VIS.songs)renderSongs();if(VIS.steuerung)renderCtl();if(VIS.mixer)renderMixer();roll._dirty=true;
+  if(VIS.songs)renderSongs();if(VIS.steuerung)renderCtl();if(VIS.mixer){renderMixer();renderIn();}roll._dirty=true;
   if(!TR.on)scrollTo(0,0);
 }
 $('#views').addEventListener('click',e=>{const b=e.target.closest('button');if(b)setView(b.dataset.v);});

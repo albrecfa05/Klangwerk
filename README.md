@@ -5,6 +5,7 @@ Klangwerk ist eine Musik-Oberfläche, die komplett im Browser läuft. Sie enthä
 - **P-8-Synth:** zwei 8-stimmige Synth-Parts (A und B) im Stil der frühen 80er (2 VCOs mit Sync und Cross-Mod, Hochpass, 12/24-dB-Ladder-Filter, 2 Hüllkurven, LFO, Arpeggiator, Chorus/Delay/Hall)
 - **Loopstation:** 8 Spuren. Pro Spur wählbar: Quelle (alles, Part A, Part B, Drums, Audio-Eingang) und Länge (1–16 Takte). Dazu Overdub, Undo/Redo, Rückwärts, Szenen und WAV-Export
 - **Mixer:** Kanalzüge für Part A/B, Drums, Eingang, alle Loop-Spuren und Master, mit Pegelanzeigen und Crossfader
+- **Audio-Eingang:** Interface-Eingänge einzeln oder in Stereo, mit Gain, Low-Cut und Vocal-Hall (nur zum Abhören oder mit aufnehmen). Eingang 1 und 2 lassen sich im Looper getrennt aufnehmen
 - **Notenrolle:** MIDI-Dateien laden. Die Noten fallen auf die Klaviatur, es gibt einen Warte-Modus, Tempo-Regler und A–B-Schleifen. Eigenes Spiel lässt sich aufnehmen und als MIDI speichern
 - **Songs & Setlist:** Songs vorab planen. Jede Sektion bekommt Presets (oder VST-Slots), Drum-Kit und Looper-Szene. Abruf per Knopf, Pad oder DDJ
 - **Steuerung:** Geführte Einrichtung für M-Audio Oxygen 25, Pioneer DDJ-400 (beide Seiten, alle vier Pad-Modi) und Roland FP-30. Zusätzlich MIDI-Learn für jedes Bedienelement

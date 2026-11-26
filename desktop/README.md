@@ -19,6 +19,8 @@ Geladene Plugins und ihre Einstellungen merkt sich die App (`%APPDATA%\Klangwerk
 
 ## Gut zu wissen
 
+- **Audio-Interface (z. B. Komplete Audio 2):** unter *Mixer → Audio-Eingang* Gerät und Kanäle wählen. Beim ersten Mal fragt die App nach dem Mikrofon-Zugriff, bitte erlauben.
+
 - MIDI-Geräte öffnet die App selbst. Unter Windows kann meist nur ein Programm ein MIDI-Gerät gleichzeitig nutzen: rekordbox oder FL Studio vorher schließen.
 - Der interne Synth läuft über das Browser-Audio, die Plugins über das gewählte Audio-Gerät. Beide klingen gleichzeitig.
 - **Plugins im Looper:** Als Quelle einer Loop-Spur funktionieren *Alles inkl. VST*, *Part A* / *Part B* (inklusive des Plugins, auf das der Part gerade spielt) oder gezielt *VST-Slot 1–8*. Die App schneidet jeden Slot im Hintergrund mit. Sobald eine Aufnahme oder ein Overdub endet, wird genau der Abschnitt in die Spur gemischt, den du gehört hast. Das dauert einen kurzen Moment. Danach verhält sich die Spur wie jede andere (Undo, Szenen, WAV-Export).
