@@ -30,9 +30,20 @@ Voreinstellung der Pads (änderbar unter *DDJ-400: Pad-Modi belegen*):
 Weitere Elemente:
 - PLAY links: Start/Stop · CUE links: Tap-Tempo
 - PLAY rechts: nächste Sektion · CUE rechts: vorige Sektion
-- Kanal-Fader: Lautstärke Part A / B
-- FILTER: Cutoff · EQ HI: Hall · EQ MID: Delay · EQ LOW: Resonanz (je Part)
+- Kanal-Fader, FILTER (DJ-Filter), EQ HI/MID/LOW: wirken auf den linken bzw. rechten Kanal. Was das ist, stellst du im Mixer unter „DDJ-Mischpult steuert“ ein: Part A / B, Loops 1–4 / 5–8 oder gewählte Loop-Spur / Master
 - Crossfader: Part A ↔ Part B
+
+## LED-Rückmeldung
+Klangwerk schickt Leucht-Signale zurück an DDJ-400 und Oxygen (abschaltbar unter Steuerung → LEDs):
+- Pad leuchtet: Spur läuft, Sektion oder Preset ist aktiv
+- schnell blinkend: Aufnahme oder Overdub
+- langsam blinkend: wartet auf den Takt oder schaltet gleich um
+- PLAY links: blinkt im Takt, solange der Takt läuft
+
+Ob und wie die LEDs reagieren, hängt von der Firmware des Geräts ab.
+
+## Belegungsplan
+Unter **Steuerung → Belegungsplan** siehst du alle Knöpfe, Fader und Regler mit ihrer aktuellen Funktion (passt sich an Pad-Modi und Mischpult-Modus an). Mit „Drucken“ gibt es ihn auf Papier oder als PDF.
 
 ### Roland FP-30
 Tastentest und Sustain-Pedal. Tipp: die Lautstärke am Piano herunterdrehen, damit der interne Klang nicht mitklingt (oder bewusst aufdrehen, wenn du den FP-30-Flügel dazu spielen willst).
