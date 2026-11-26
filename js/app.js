@@ -211,7 +211,9 @@ const presetSel=$('#preset');
 function renderPresetList(){const pl=allPresets();presetSel.innerHTML=pl.map((p,i)=>`<option value="${i}">${String(i+1).padStart(2,'0')} ${i<FACT.length?'':'★ '}${esc(p.n)}</option>`).join('');presetSel.value=parts[ed].preset;
   $('#bankPg').textContent='Bank '+(bankPg+1);
   $$('.pb').forEach((b,i)=>{const j=bankPg*16+i;b.title=pl[j]?pl[j].n:'';b.lastChild.textContent=j+1;b.disabled=!pl[j];b.classList.toggle('on',parts[ed].preset===j);});renderLCD();}
-function renderLCD(){const p=allPresets()[parts[ed].preset];$('#lcd').innerHTML=`${ed?'B':'A'}-${String(parts[ed].preset+1).padStart(2,'0')}<small>${esc((p?p.n:'').toUpperCase())}</small>`;}
+function renderLCD(){const o=typeof outSel!=='undefined'?outSel[ed]:null;
+  if(o&&o.mode==='ext'){const sl=SLOTS[o.slot];$('#lcd').innerHTML=`${ed?'B':'A'}-VST<small>${esc(('Slot '+(o.slot+1)+': '+(sl?sl.name:'')).toUpperCase())}</small>`;return;}
+  const p=allPresets()[parts[ed].preset];$('#lcd').innerHTML=`${ed?'B':'A'}-${String(parts[ed].preset+1).padStart(2,'0')}<small>${esc((p?p.n:'').toUpperCase())}${o&&o.mode==='both'?' + VST':''}</small>`;}
 function loadPresetIdx(i,pi=ed){const pl=allPresets();if(!pl[i])return;parts[pi].preset=i;if(pi===ed)bankPg=Math.floor(i/16);parts[pi].st=presetToSt(pl[i]);if(pi===ed){renderAll();renderPresetList();}if(A)sendAll(pi);renderPads();info((pi?'Part B':'Part A')+': '+pl[i].n);}
 bankEl.addEventListener('click',e=>{const b=e.target.closest('.pb');if(b&&!learning())loadPresetIdx(bankPg*16+(+b.dataset.pb));});
 $('#setup').innerHTML='<option value="">Setup laden …</option>'+SETUPS.map((x,i)=>`<option value="${i}">${esc(x.n)}</option>`).join('');
@@ -686,9 +688,10 @@ const isX=v=>typeof v==='string'&&v[0]==='x';
 function targetLabel(v){if(isX(v)){const sl=SLOTS[+v.slice(1)];return 'VST: '+(sl?sl.name:'?');}const p=allPresets()[v];return p?p.n:'unverändert';}
 function applyTarget(pi,v){
   if(v===''||v===null||v===undefined||v===-1||v==='-1')return;
-  if(isX(v)){const si=+v.slice(1);pSend(pi,{t:'panic'});outSel[pi]={mode:'ext',slot:si};LS.set('kw.out2',outSel);const sl=SLOTS[si];if(sl&&sl.pc>0)slotSend(si,[0xC0|((sl.ch-1)&15),(sl.pc-1)&127]);if(VIS.steuerung)renderCtl();return;}
-  if(outSel[pi].mode==='ext'){pSend(pi,{t:'panic'});outSel[pi].mode='int';LS.set('kw.out2',outSel);if(VIS.steuerung)renderCtl();}
-  loadPresetIdx(+v,pi);
+  if(isX(v)){const si=+v.slice(1);pSend(pi,{t:'panic'});outSel[pi]={mode:'ext',slot:si,bySec:true};LS.set('kw.out2',outSel);const sl=SLOTS[si];if(sl&&sl.pc>0)slotSend(si,[0xC0|((sl.ch-1)&15),(sl.pc-1)&127]);if(VIS.steuerung)renderCtl();return;}
+  /* Nur zurück auf „intern“, wenn eine Song-Sektion den VST-Slot gesetzt hatte – eine Einstellung unter „Steuerung“ bleibt bestehen */
+  if(outSel[pi].mode==='ext'&&outSel[pi].bySec){pSend(pi,{t:'panic'});outSel[pi].mode='int';outSel[pi].bySec=false;LS.set('kw.out2',outSel);if(VIS.steuerung)renderCtl();}
+  loadPresetIdx(+v,pi);renderLCD();
 }
 function applyScene(k){const s=scenes[k];if(!s)return;s.forEach((x,i)=>{if(!LT[i].has)return;if(LT[i].mute!==x.mute)loopSet(i,{mute:x.mute});if(LT[i].stop!==x.stop)loopMsg('stop',i,{v:x.stop});});}
 function recallSection(i){const sg=SONGS[curSong];if(!sg||!sg.sections[i])return;const sc=sg.sections[i];curSec=i;
@@ -860,7 +863,7 @@ $('#steuerung').addEventListener('change',e=>{const t=e.target;
   if(t.id==='vstOffI'){vstOff=Math.max(-500,Math.min(500,+t.value||0));LS.set('kw.vstOff',vstOff);return;}
   if(t.dataset.plug!==undefined&&window.KWD){const i=+t.dataset.plug,id=t.value;t.disabled=true;
     KWD.call('kwLoad',i,id).then(r=>{t.disabled=false;if(r&&r.ok){SLOTS[i].plugin=id;if(id)SLOTS[i].name=r.name;LS.set('kw.slots',SLOTS);renderCtl();if(VIS.songs)renderSongEd();toast(id?'Geladen: '+r.name+' (Slot '+(i+1)+')':'Slot '+(i+1)+' geleert');}else{toast((r&&r.err)||'Plugin ließ sich nicht laden');renderCtl();}});return;}
-  if(t.dataset.om!==undefined){pSend(+t.dataset.om,{t:'panic'});outSel[+t.dataset.om].mode=t.value;LS.set('kw.out2',outSel);return;}
+  if(t.dataset.om!==undefined){const pi=+t.dataset.om;pSend(pi,{t:'panic'});if(A)A.P[pi].syn.port.postMessage({t:'panic'});outSel[pi].mode=t.value;outSel[pi].bySec=false;LS.set('kw.out2',outSel);renderLCD();toast('Part '+(pi?'B':'A')+': '+OUTM.find(x=>x[0]===t.value)[1]);return;}
   if(t.dataset.os!==undefined){pSend(+t.dataset.os,{t:'panic'});outSel[+t.dataset.os].slot=+t.value;LS.set('kw.out2',outSel);return;}
   const tr=t.closest('tr[data-sl]');if(tr&&t.dataset.sf){const s=SLOTS[+tr.dataset.sl],f=t.dataset.sf;s[f]=f==='name'?(t.value.trim()||'VST'):f==='port'?t.value:Math.max(0,Math.round(+t.value));if(f==='ch')s.ch=Math.max(1,Math.min(16,s.ch));LS.set('kw.slots',SLOTS);if(f==='name'){renderCtl();if(VIS.songs)renderSongEd();}}});
 
