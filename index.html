@@ -153,8 +153,8 @@
   <div class="cgrid">
     <div class="cbox"><h3>Geräte &amp; geführte Einrichtung</h3><div id="ctlDevs"></div></div>
     <div class="cbox"><h3>DDJ-400: Pad-Modi belegen</h3><p class="hint" style="margin-top:0">Links und rechts sind gleich aufgebaut. Für jede Seite und jeden Modus (oben am Gerät wählbar) legst du fest, was die 8 Pads tun.</p><table class="pmt" id="padmapT"></table></div>
-    <div class="cbox wide"><h3>VST-Plugins über FL Studio</h3>
-      <p class="hint" style="margin-top:0">Klangwerk schickt die Noten eines Parts per MIDI an FL Studio, dort spielen deine VST-Plugins. Pro Slot: Name des Instruments, virtueller MIDI-Port (loopMIDI) und Kanal. Anleitung: docs/FL-Studio-und-VST.md im Repo.</p>
+    <div class="cbox wide"><h3 id="vstH">VST-Plugins über FL Studio</h3>
+      <p class="hint" id="vstP" style="margin-top:0">Klangwerk schickt die Noten eines Parts per MIDI an FL Studio, dort spielen deine VST-Plugins. Pro Slot: Name des Instruments, virtueller MIDI-Port (loopMIDI) und Kanal. Anleitung: docs/FL-Studio-und-VST.md im Repo.</p>
       <div id="partOuts"></div>
       <table class="pmt" id="slotT"></table>
     </div>
@@ -191,6 +191,7 @@
 <div class="tour" id="tourAsk" hidden></div>
 <div class="toast" id="toast"></div>
 <script src="js/worklets.js"></script>
+<script src="js/desktop.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

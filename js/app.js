@@ -384,10 +384,11 @@ $('#nNames').addEventListener('change',e=>{names=e.target.value;renderPiano();})
 const trails=[];
 const recS={on:false,t0:0,notes:[],open:new Map()};
 /* Ausgabe pro Part: intern (Klangwerk-Synth) und/oder an einen VST-Slot (MIDI-Port + Kanal, z. B. FL Studio) */
+let PLUGINS=[];
 let SLOTS=LS.get('kw.slots',Array.from({length:8},(_,i)=>({name:'VST '+(i+1),port:'',ch:i+1,pc:0})));
 let outSel=LS.get('kw.out2',[{mode:'int',slot:0},{mode:'int',slot:1}]);
 function outPort(sl){if(!midi||!sl||!sl.port)return null;return[...midi.outputs.values()].find(x=>x.name===sl.port)||null;}
-function slotSend(si,data){const sl=SLOTS[si],o=outPort(sl);if(o)try{o.send(data);}catch(e){}}
+function slotSend(si,data){const sl=SLOTS[si];if(!sl)return;if(window.KWD&&sl.plugin){KWD.emit('kwSlotMidi',{s:si,m:Array.from(data)});return;}const o=outPort(sl);if(o)try{o.send(data);}catch(e){}}
 function pSend(pi,m){const o=outSel[pi];if(o.mode!=='ext'&&A)A.P[pi].syn.port.postMessage(m);
   if(o.mode!=='int'){const sl=SLOTS[o.slot];if(!sl)return;const ch=(sl.ch-1)&15;
     const f={on:()=>[0x90|ch,m.n,Math.max(1,Math.min(127,Math.round(m.v*127)))],off:()=>[0x80|ch,m.n,0],sus:()=>[0xB0|ch,64,m.v?127:0],mod:()=>[0xB0|ch,1,Math.round(m.v*127)],
@@ -819,18 +820,27 @@ function renderCtl(){if(!VIS.steuerung)return;
   $('#padmapT').innerHTML=`<thead><tr><th>Modus</th><th>Links (Deck 1)</th><th>Rechts (Deck 2)</th></tr></thead><tbody>${Object.entries(DMODE).map(([m,l])=>`<tr><td>${l}</td>${['L','R'].map(s=>`<td><select data-pm="${s}:${m}" aria-label="${l} ${s}">${Object.entries(PADFN).map(([f,n])=>`<option value="${f}"${PADMAP[s][m]===f?' selected':''}>${n}</option>`).join('')}</select></td>`).join('')}</tr>`).join('')}</tbody>`;
   $('#partOuts').innerHTML=[0,1].map(pi=>`<label><b style="color:var(--ink)">Part ${pi?'B':'A'}</b><select data-om="${pi}">${OUTM.map(([k,l])=>`<option value="${k}"${outSel[pi].mode===k?' selected':''}>${l}</option>`).join('')}</select>
     <select data-os="${pi}" aria-label="Slot">${SLOTS.map((s,i)=>`<option value="${i}"${outSel[pi].slot===i?' selected':''}>Slot ${i+1}: ${esc(s.name)}</option>`).join('')}</select></label>`).join('');
-  $('#slotT').innerHTML=`<thead><tr><th>Slot</th><th>Instrument in FL Studio</th><th>MIDI-Port</th><th>Kanal</th><th>Programm</th><th></th></tr></thead><tbody>${SLOTS.map((s,i)=>`<tr data-sl="${i}"><td>${i+1}</td>
+  const D=!!window.KWD;
+  if(D){$('#vstH').textContent='VST-Plugins (direkt in Klangwerk)';$('#vstP').innerHTML='Wähle pro Slot ein VST3-Plugin. „Fenster“ öffnet die Oberfläche des Plugins. Alternativ kann ein Slot weiter per MIDI-Port an FL Studio gehen. <span style="white-space:nowrap"><button id="kwScanB">Plugins suchen</button> <button id="kwAudioB">Audio-Einstellungen</button> <span id="kwScanS" class="hint"></span></span>';}
+  const plugOpts=s=>'<option value="">– kein Plugin –</option>'+[...PLUGINS].sort((a,b)=>(b.instrument-a.instrument)||a.name.localeCompare(b.name)).map(p=>`<option value="${esc(p.id)}"${s.plugin===p.id?' selected':''}>${p.instrument?'':'(Effekt) '}${esc(p.name)} – ${esc(p.vendor)}</option>`).join('');
+  $('#slotT').innerHTML=`<thead><tr><th>Slot</th>${D?'<th>Plugin</th>':''}<th>${D?'Name':'Instrument in FL Studio'}</th><th>MIDI-Port</th><th>Kanal</th><th>Programm</th><th></th></tr></thead><tbody>${SLOTS.map((s,i)=>`<tr data-sl="${i}"><td>${i+1}</td>
+    ${D?`<td><select data-plug="${i}" aria-label="Plugin Slot ${i+1}">${plugOpts(s)}</select></td>`:''}
     <td><input type="text" data-sf="name" value="${esc(s.name)}" aria-label="Name Slot ${i+1}"></td>
     <td><select data-sf="port" aria-label="Port Slot ${i+1}"><option value="">– wählen –</option>${outs.map(o=>`<option${s.port===o.name?' selected':''}>${esc(o.name)}</option>`).join('')}${s.port&&!outs.some(o=>o.name===s.port)?`<option selected>${esc(s.port)}</option>`:''}</select></td>
     <td><select data-sf="ch" aria-label="Kanal Slot ${i+1}">${Array.from({length:16},(_,c)=>`<option value="${c+1}"${s.ch===c+1?' selected':''}>${c+1}</option>`).join('')}</select></td>
     <td><input type="number" data-sf="pc" min="0" max="128" value="${s.pc||0}" title="0 = aus, sonst Program Change beim Umschalten" aria-label="Programm Slot ${i+1}"></td>
-    <td><button data-test="${i}">Test-Ton</button></td></tr>`).join('')}</tbody>`+(midi&&!outs.length?'<tfoot><tr><td colspan="6" class="hint">Keine MIDI-Ausgänge gefunden. Windows: loopMIDI installieren und einen Port anlegen (z. B. „Klangwerk A“), dann die Seite neu laden.</td></tr></tfoot>':'');}
+    <td style="white-space:nowrap">${D?`<button data-ed="${i}"${s.plugin?'':' disabled'}>Fenster</button> `:''}<button data-test="${i}">Test-Ton</button></td></tr>`).join('')}</tbody>`+(midi&&!outs.length?'<tfoot><tr><td colspan="6" class="hint">Keine MIDI-Ausgänge gefunden. Windows: loopMIDI installieren und einen Port anlegen (z. B. „Klangwerk A“), dann die Seite neu laden.</td></tr></tfoot>':'');}
 $('#steuerung').addEventListener('click',e=>{const t=e.target.closest('[data-tour]');if(t){startTour(t.dataset.tour);return;}
-  const tt=e.target.closest('[data-test]');if(tt){const i=+tt.dataset.test,sl=SLOTS[i],ch=(sl.ch-1)&15;if(!outPort(sl)){toast('Für diesen Slot ist kein MIDI-Port gewählt');return;}
+  if(window.KWD){const ed=e.target.closest('[data-ed]');if(ed){KWD.call('kwEditor',+ed.dataset.ed).then(ok=>{if(!ok)toast('Erst ein Plugin laden');});return;}
+    if(e.target.id==='kwScanB'){KWD.call('kwScan');$('#kwScanS').textContent='Suche läuft …';return;}
+    if(e.target.id==='kwAudioB'){KWD.call('kwAudioSettings');return;}}
+  const tt=e.target.closest('[data-test]');if(tt){const i=+tt.dataset.test,sl=SLOTS[i],ch=(sl.ch-1)&15;if(!(window.KWD&&sl.plugin)&&!outPort(sl)){toast('Für diesen Slot ist weder ein Plugin noch ein MIDI-Port gewählt');return;}
     slotSend(i,[0x90|ch,60,100]);setTimeout(()=>slotSend(i,[0x80|ch,60,0]),450);toast('Test-Ton an '+sl.name+' (Kanal '+sl.ch+')');}});
 $('#steuerung').addEventListener('change',e=>{const t=e.target;
   if(t.dataset.dev){roles[t.dataset.dev]=t.value;LS.set('kw.roles',roles);panic();return;}
   if(t.dataset.pm){const [s,m]=t.dataset.pm.split(':');PADMAP[s][m]=t.value;LS.set('kw.padmap',PADMAP);return;}
+  if(t.dataset.plug!==undefined&&window.KWD){const i=+t.dataset.plug,id=t.value;t.disabled=true;
+    KWD.call('kwLoad',i,id).then(r=>{t.disabled=false;if(r&&r.ok){SLOTS[i].plugin=id;if(id)SLOTS[i].name=r.name;LS.set('kw.slots',SLOTS);renderCtl();if(VIS.songs)renderSongEd();toast(id?'Geladen: '+r.name+' (Slot '+(i+1)+')':'Slot '+(i+1)+' geleert');}else{toast((r&&r.err)||'Plugin ließ sich nicht laden');renderCtl();}});return;}
   if(t.dataset.om!==undefined){pSend(+t.dataset.om,{t:'panic'});outSel[+t.dataset.om].mode=t.value;LS.set('kw.out2',outSel);return;}
   if(t.dataset.os!==undefined){pSend(+t.dataset.os,{t:'panic'});outSel[+t.dataset.os].slot=+t.value;LS.set('kw.out2',outSel);return;}
   const tr=t.closest('tr[data-sl]');if(tr&&t.dataset.sf){const s=SLOTS[+tr.dataset.sl],f=t.dataset.sf;s[f]=f==='name'?(t.value.trim()||'VST'):f==='port'?t.value:Math.max(0,Math.round(+t.value));if(f==='ch')s.ch=Math.max(1,Math.min(16,s.ch));LS.set('kw.slots',SLOTS);if(f==='name'){renderCtl();if(VIS.songs)renderSongEd();}}});
@@ -967,6 +977,12 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&A)startDr
 /* ================= Start ================= */
 renderAll();renderPresetList();renderPads();renderLanes();selectT(0);renderPiano();renderKnobs();renderPerf();
 setView(location.hash.slice(1)||'alles',false);
+if(window.KWD){
+  KWD.call('kwPlugins').then(l=>{PLUGINS=l||[];renderCtl();});
+  KWD.call('kwSlots').then(l=>{(l||[]).forEach((x,i)=>{if(!SLOTS[i])return;SLOTS[i].plugin=x.id||'';if(x.id)SLOTS[i].name=x.name;});LS.set('kw.slots',SLOTS);renderCtl();});
+  KWD.on('kwScan',p=>{const el=$('#kwScanS');if(p.done){if(el)el.textContent=(p.count||0)+' Plugins gefunden';KWD.call('kwPlugins').then(l=>{PLUGINS=l||[];renderCtl();});}else if(el)el.textContent='Prüfe '+Math.round(p.progress*100)+'%: '+p.name;});
+  document.title='Klangwerk Desktop';
+}
 $('#go').addEventListener('click',async()=>{$('#go').disabled=true;$('#go').textContent='Lädt …';
   try{await initAudio();await A.ctx.resume();$('#start').remove();initMIDI();startDraw();renderMixer();}
   catch(e){console.error(e);$('#go').disabled=false;$('#go').textContent='Audio starten';toast('Audio konnte nicht starten: '+e.message);}});

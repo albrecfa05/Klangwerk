@@ -8,11 +8,13 @@ Klangwerk ist eine Musik-Oberfläche, die komplett im Browser läuft. Sie enthä
 - **Notenrolle:** MIDI-Dateien laden. Die Noten fallen auf die Klaviatur, es gibt einen Warte-Modus, Tempo-Regler und A–B-Schleifen. Eigenes Spiel lässt sich aufnehmen und als MIDI speichern
 - **Songs & Setlist:** Songs vorab planen. Jede Sektion bekommt Presets (oder VST-Slots), Drum-Kit und Looper-Szene. Abruf per Knopf, Pad oder DDJ
 - **Steuerung:** Geführte Einrichtung für M-Audio Oxygen 25, Pioneer DDJ-400 (beide Seiten, alle vier Pad-Modi) und Roland FP-30. Zusätzlich MIDI-Learn für jedes Bedienelement
-- **VST-Plugins:** Über einen virtuellen MIDI-Port spielen die Parts Instrumente in FL Studio. Anleitung: [docs/FL-Studio-und-VST.md](docs/FL-Studio-und-VST.md)
+- **VST-Plugins:** In der **Desktop-App für Windows** lädst du VST3-Plugins direkt in 8 Slots ([desktop/README.md](desktop/README.md)). In der Browser-Version gehen die Parts per virtuellem MIDI-Port an FL Studio ([docs/FL-Studio-und-VST.md](docs/FL-Studio-und-VST.md)).
 
 ## Starten
 
 **Am einfachsten:** **https://albrecfa05.github.io/Klangwerk/** in **Chrome oder Edge** öffnen (Firefox und Safari unterstützen Web MIDI nicht zuverlässig).
+
+**Desktop-App (Windows, mit VST3-Plugins):** unter *Actions → Desktop-App (Windows)* das Paket *Klangwerk-Windows* herunterladen, Details in [desktop/README.md](desktop/README.md).
 
 **Lokal:** Repo herunterladen und `index.html` per Doppelklick in Chrome/Edge öffnen. Eine Installation oder ein Server ist nicht nötig. Wer lieber eine einzige Datei weitergibt: `python3 tools/build_single.py` erzeugt `dist/Klangwerk.html`.
 
@@ -38,10 +40,13 @@ Alles ist änderbar unter **Steuerung** bzw. **MIDI**. Details: [docs/Steuerung.
 index.html            Oberfläche
 css/klangwerk.css     Gestaltung
 js/worklets.js        Audio-Engine (Synth + Looper als AudioWorklet)
+js/desktop.js         Brücke zur Desktop-App (im Browser inaktiv)
 js/app.js             Bedienung, MIDI, Mixer, Songs, Notenrolle
 songs/                Beispiel-Setlist zum Importieren
 docs/                 Anleitungen (FL Studio/VST, Steuerung)
 tools/build_single.py Ein-Datei-Version bauen
+desktop/              Windows-App (JUCE, C++): Weboberfläche + VST3-Host
+.github/workflows/    Automatischer Windows-Build
 ```
 
 Es gibt keine Abhängigkeiten und keinen Build-Schritt. Einstellungen (eigene Presets, Zuweisungen, Songs, Mixer) speichert der Browser lokal. Über **Export/Import** lassen sie sich als JSON-Datei weitergeben.
